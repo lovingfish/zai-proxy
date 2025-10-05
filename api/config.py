@@ -1,0 +1,51 @@
+import os
+from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+from typing import Dict, List
+
+load_dotenv()
+
+
+class Settings(BaseSettings):
+    # Server settings
+    HOST: str = os.getenv("HOST", "0.0.0.0")
+    PORT: int = int(os.getenv("PORT", "8001"))
+    DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
+    WORKERS: int = int(os.getenv("WORKERS", "1"))
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+
+    # API settings
+    PROXY_URL: str = os.getenv("PROXY_URL", "https://chat.z.ai")
+
+    # Headers
+    HEADERS: Dict[str, str] = {
+        "Accept": "*/*",
+        "Accept-Language": "zh-CN",
+        # "Authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIxZWE5ZWMzLWU0OTItNGRiYi1iNTIyLWZjMGVhZjY0ZjBmNiIsImVtYWlsIjoiN2UwNDA1OTQwNjllQHRoZXN0dWFydGZlYWtpbnN0cnVzdC5jb20ifQ.J4w8oAVxFEza33XPpl9iEzuMgn_NgjLJaRSpT-tlNSi0lDM8Cpjxs7UdF1aj9Zhi2F3aHob0QLdUdww9ND7qvQ",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json",
+        "Origin": "https://chat.z.ai",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        "X-FE-Version": "prod-fe-1.0.95",
+    }
+
+    ALLOWED_MODELS: List[Dict[str, str]] = [
+        {"id": "GLM-4-6-API-V1", "name": "GLM-4.6"},
+        {"id": "glm-4.5v", "name": "GLM-4.5V"},
+        {"id": "0727-360B-API", "name": "GLM-4.5"},
+    ]
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+
+_settings = None
+
+
+def get_settings() -> Settings:
+    global _settings
+    if _settings is None:
+        _settings = Settings()
+    return _settings
