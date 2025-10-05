@@ -1,6 +1,5 @@
 import json
-from os import access
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from api.config import get_settings
 from api.models import ChatRequest
@@ -34,7 +33,7 @@ async def list_models():
 @router.post("/chat/completions")
 async def chat_completions(request: Request, chat_request: ChatRequest):
     logger.info("Entering chat_completions route")
-    logger.info(f"Received request: {chat_request}")
+    # logger.info(f"Received request: {chat_request}")
     ## 获取header中的Authorization
     access_token = (
         request.headers.get("Authorization").split(" ")[-1]
