@@ -2,7 +2,6 @@ import json
 from os import access
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
-from grpc import access_token_call_credentials
 from api.config import get_settings
 from api.models import ChatRequest
 from api.utils import process_non_streaming_response, process_streaming_response
