@@ -170,7 +170,7 @@ async def process_non_streaming_response(request: ChatRequest, access_token: str
     async with httpx.AsyncClient() as client:
         async with client.stream(
             method="POST",
-            url=f"{BASE_URL}/api/chat",
+            url=f"{BASE_URL}/api/chat/completions",
             headers=settings.HEADERS,
             json=zai_data,
         ) as response:

@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     HEADERS: Dict[str, str] = {
         "Accept": "*/*",
         "Accept-Language": "zh-CN",
-        # "Authorization": "Bearer eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIxZWE5ZWMzLWU0OTItNGRiYi1iNTIyLWZjMGVhZjY0ZjBmNiIsImVtYWlsIjoiN2UwNDA1OTQwNjllQHRoZXN0dWFydGZlYWtpbnN0cnVzdC5jb20ifQ.J4w8oAVxFEza33XPpl9iEzuMgn_NgjLJaRSpT-tlNSi0lDM8Cpjxs7UdF1aj9Zhi2F3aHob0QLdUdww9ND7qvQ",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
         "Content-Type": "application/json",
