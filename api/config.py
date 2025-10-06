@@ -30,10 +30,22 @@ class Settings(BaseSettings):
     }
 
     ALLOWED_MODELS: List[Dict[str, str]] = [
-        {"id": "GLM-4-6-API-V1", "name": "GLM-4.6"},
-        {"id": "glm-4.5v", "name": "GLM-4.5V"},
-        {"id": "0727-360B-API", "name": "GLM-4.5"},
+        {"id": "glm-4.6", "name": "GLM-4.6"},
+        {"id": "glm-4.5V", "name": "GLM-4.5V"},
+        {"id": "glm-4.5", "name": "GLM-4.5"},
+        {"id": "glm-4.6-search", "name": "GLM-4.6-SEARCH"},
+        {"id": "glm-4.6-advanced-search", "name": "GLM-4.6-ADVANCED-SEARCH"},
+        {"id": "glm-4.6-nothinking", "name": "GLM-4.6-NOTHINKING"},
     ]
+
+    MODELS_MAPPING: Dict[str, str] = {
+        "glm-4.6": "GLM-4-6-API-V1",
+        "glm-4.6-nothinking": "GLM-4-6-API-V1",
+        "glm-4.6-search": "GLM-4-6-API-V1",
+        "glm-4.6-advanced-search": "GLM-4-6-API-V1",
+        "glm-4.5V": "glm-4.5v",
+        "glm-4.5": "0727-360B-API",
+    }
 
     class Config:
         env_file = ".env"
