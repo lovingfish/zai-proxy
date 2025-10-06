@@ -4,7 +4,6 @@ import time
 from typing import Any, Dict, Optional
 import uuid
 import httpx
-import mcp
 
 from api.config import get_settings
 from api.models import ChatRequest
