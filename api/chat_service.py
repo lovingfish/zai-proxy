@@ -1,12 +1,12 @@
 from datetime import datetime
 import json
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 import uuid
 import httpx
-
 from api.config import get_settings
-from api.models import ChatRequest
+from api.image_uploader import ImageUploader
+from api.models import ChatRequest, Message
 from api.logger import setup_logger
 from api.signature_generator import generate_signature
 
@@ -53,62 +53,87 @@ def create_chat_completion_data(
     }
 
 
-def message_to_dict(message):
-    if isinstance(message.content, str):
-        return {"role": message.role, "content": message.content}
-    elif isinstance(message.content, list) and len(message.content) == 2:
-        return {
-            "role": message.role,
-            "content": message.content[0]["text"],
-            "data": {
-                "imageBase64": message.content[1]["image_url"]["url"],
-                "fileText": "",
-                "title": "snapshoot",
-            },
-        }
-    else:
-        return {"role": message.role, "content": message.content}
+def convert_messages(messages: List[Message]):
+    trans_messages = []
+    image_urls = []
+    for message in messages:
+        if isinstance(message.content, str):
+            trans_messages.append({"role": message.role, "content": message.content})
+        elif isinstance(message.content, list):
+            for part in message.content:
+                if part.get("type") == "text":
+                    trans_messages.append(
+                        {"role": "user", "content": part.get("text", "")}
+                    )
+                elif part.get("type") == "image_url":
+                    image_urls.append(part.get("image_url", "").get("url", ""))
+    return {"messages": trans_messages, "image_urls": image_urls}
 
 
-def getfeatures(model: str) -> Dict[str, bool]:
-
-    features = {
-        "image_generation": False,
-        "web_search": False,
-        "auto_web_search": False,
-        "preview_mode": False,
-        "flags": [],
-        "enable_thinking": True,
-    }
-
-    mcp_servers = []
-    if model in ["glm-4.6-search", "glm-4.6-advanced-search"]:
-        features["web_search"] = True
-        features["auto_web_search"] = True
-        features["preview_mode"] = True
-    if model == "glm-4.6-nothinking":
-        features["enable_thinking"] = False
-    if model == "glm-4.6-advanced-search":
-        mcp_servers = [
-            "advanced-search",
-        ]
+def getfeatures(model: str, streaming: bool) -> Dict[str, bool]:
     dict = {}
-    dict["features"] = features
-    dict["mcp_servers"] = mcp_servers
+    if streaming:
+        features = {
+            "image_generation": False,
+            "web_search": False,
+            "auto_web_search": False,
+            "preview_mode": False,
+            "flags": [],
+            "enable_thinking": True,
+        }
+
+        mcp_servers = []
+        if model in ["glm-4.6-search", "glm-4.6-advanced-search"]:
+            features["web_search"] = True
+            features["auto_web_search"] = True
+            features["preview_mode"] = True
+        if model == "glm-4.6-nothinking":
+            features["enable_thinking"] = False
+        if model == "glm-4.6-advanced-search":
+            mcp_servers = [
+                "advanced-search",
+            ]
+
+        dict["features"] = features
+        dict["mcp_servers"] = mcp_servers
+    else:
+        features = {
+            "image_generation": False,
+            "web_search": False,
+            "auto_web_search": False,
+            "preview_mode": False,
+            "flags": [],
+            "enable_thinking": False,
+        }
+        mcp_servers = []
+        dict["features"] = features
+        dict["mcp_servers"] = mcp_servers
     return dict
 
 
-async def process_streaming_response(request: ChatRequest, access_token: str):
-
+async def prepare_data(request, access_token, streaming=True):
+    convert_dict = convert_messages(request.messages)
     zai_data = {
         "stream": True,
         "model": settings.MODELS_MAPPING.get(request.model),
-        "messages": [message_to_dict(msg) for msg in request.messages],
+        "messages": convert_dict["messages"],
         "chat_id": str(uuid.uuid4()),
         "id": str(uuid.uuid4()),
     }
 
-    features_dict = getfeatures(request.model)
+    image_uploader = ImageUploader(access_token)
+    files = []
+    for url in convert_dict["image_urls"]:
+        if url.startswith("data:image/"):
+            image_base64 = url.split("base64,")[-1]
+            pic_id = await image_uploader.upload_base64_image(image_base64)
+            files.append({"type": "image", "id": pic_id})
+        elif url.startswith("http"):
+            pic_id = await image_uploader.upload_image_from_url(url)
+            files.append({"type": "image", "id": pic_id})
+    zai_data["files"] = files
+
+    features_dict = getfeatures(request.model, streaming)
     zai_data["features"] = features_dict["features"]
     if len(features_dict["mcp_servers"]) > 0:
         zai_data["mcp_servers"] = features_dict["mcp_servers"]
@@ -128,14 +153,21 @@ async def process_streaming_response(request: ChatRequest, access_token: str):
     t = zai_data["messages"][-1]["content"]
     signature_data = generate_signature(e, t)
     params["signature_timestamp"] = str(signature_data["timestamp"])
-    settings.HEADERS["Authorization"] = f"Bearer {access_token}"
-    settings.HEADERS["X-Signature"] = signature_data["signature"]
+    headers = settings.HEADERS
+    headers["Authorization"] = f"Bearer {access_token}"
+    headers["X-Signature"] = signature_data["signature"]
+    return zai_data, params, headers
+
+
+async def process_streaming_response(request: ChatRequest, access_token: str):
+
+    zai_data, params, headers = await prepare_data(request, access_token)
     async with httpx.AsyncClient() as client:
         try:
             async with client.stream(
                 "POST",
                 f"{BASE_URL}/api/chat/completions",
-                headers=settings.HEADERS,
+                headers=headers,
                 params=params,
                 json=zai_data,
                 timeout=300,
@@ -202,33 +234,34 @@ async def process_streaming_response(request: ChatRequest, access_token: str):
 
 
 async def process_non_streaming_response(request: ChatRequest, access_token: str):
-    zai_data = {
-        "stream": False,
-        "model": request.model,
-        "messages": [message_to_dict(msg) for msg in request.messages],
-        "features": {
-            "image_generation": True,
-            "web_search": False,
-            "auto_web_search": True,
-            "preview_mode": True,
-            "flags": [],
-            "enable_thinking": True,
-        },
-        "chat_id": str(uuid.uuid4()),
-        "id": str(uuid.uuid4()),
-    }
 
-    settings.HEADERS["Authorization"] = f"Bearer {access_token}"
+    zai_data, params, headers = await prepare_data(request, access_token, False)
     full_response = ""
+    usage = {}
     async with httpx.AsyncClient() as client:
         async with client.stream(
             method="POST",
             url=f"{BASE_URL}/api/chat/completions",
-            headers=settings.HEADERS,
+            headers=headers,
+            params=params,
             json=zai_data,
+            timeout=300,
         ) as response:
-            async for chunk in response.aiter_text():
-                full_response += chunk
+            async for line in response.aiter_lines():
+                if line:
+                    if line.startswith("data:"):
+                        json_str = line[6:]  # 去掉 "data: " 前缀
+                        json_object = json.loads(json_str)
+                        if json_object.get("data", {}).get("phase") == "answer":
+                            if json_object.get("data").get("delta_content"):
+                                content = json_object.get("data").get("delta_content")
+                            else:
+                                content = ""
+                            full_response += content
+                        elif json_object.get("data", {}).get("phase") == "other":
+                            usage = json_object.get("data").get("usage", {})
+                            content = json_object.get("data").get("delta_content", "")
+                            full_response += content
     return {
         "id": f"chatcmpl-{uuid.uuid4()}",
         "object": "chat.completion",
@@ -241,5 +274,5 @@ async def process_non_streaming_response(request: ChatRequest, access_token: str
                 "finish_reason": "stop",
             }
         ],
-        "usage": None,
+        "usage": usage,
     }

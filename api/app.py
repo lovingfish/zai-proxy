@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request
+import json
+from fastapi import FastAPI, Request, Response
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -54,3 +55,17 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+@app.get("/health")
+def health_check():
+    return Response(content=json.dumps({"status": "ok"}), media_type="application/json")
+
+
+@app.get("/")
+def powerby():
+    return Response(
+        content="ZAI Proxy Powered by snaily",
+        media_type="text/plain",
+        headers={"X-Powered-By": "ZAI Proxy"},
+    )

@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from api.config import get_settings
 from api.models import ChatRequest
-from api.utils import process_non_streaming_response, process_streaming_response
+from api.chat_service import process_non_streaming_response, process_streaming_response
 from api.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -71,9 +71,3 @@ async def chat_completions(request: Request, chat_request: ChatRequest):
     else:
         logger.info("Non-streaming response")
         return await process_non_streaming_response(chat_request, access_token)
-
-
-@router.route("/")
-@router.get("/health")
-def health_check():
-    return Response(content=json.dumps({"status": "ok"}), media_type="application/json")
