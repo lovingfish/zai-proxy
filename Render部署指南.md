@@ -13,6 +13,11 @@
 
 确保您的代码已推送到 GitHub、GitLab 或 Bitbucket。
 
+**检查清单**：
+- ✅ 确认项目根目录存在 `requirements.txt` 文件
+- ✅ 确认 `main.py` 文件存在且可正常运行
+- ✅ 确认所有依赖都已列在 `requirements.txt` 中
+
 ### 2. 创建 Web Service
 
 1. 登录 [Render Dashboard](https://dashboard.render.com/)
@@ -46,14 +51,16 @@
 
 | 变量名 | 值 | 说明 |
 |--------|-----|------|
-| `PORT` | `8001` | 服务端口（Render 会自动设置，可选） |
 | `HOST` | `0.0.0.0` | 监听地址 |
 | `WORKERS` | `1` | Worker 进程数（根据实例大小调整） |
 | `LOG_LEVEL` | `INFO` | 日志级别 |
 | `DEBUG` | `False` | 是否开启调试模式 |
 | `PROXY_URL` | `https://chat.z.ai` | 代理目标 URL |
 
-**注意**: Render 会自动提供 `PORT` 环境变量，您的应用需要监听该端口。
+**重要提示**:
+- **不要手动设置 `PORT` 环境变量**，Render 会自动提供并管理该变量
+- 应用会自动从 Render 提供的 `$PORT` 环境变量读取端口号
+- 手动设置 `PORT` 可能导致健康检查失败和服务无法访问
 
 ### 4. 选择实例类型
 
@@ -196,6 +203,33 @@ Render 会自动监控 `/health` 端点。如果健康检查失败，Render 会�
    - 使用付费实例以获得更好的性能和稳定性
    - 根据负载调整 `WORKERS` 数量
    - 考虑使用 CDN 缓存静态内容
+
+## 生产环境安全建议
+
+1. **环境变量安全**：
+   - 不要在代码中硬编码敏感信息
+   - 使用 Render 的环境变量功能管理所有配置
+   - 定期轮换访问令牌
+
+2. **CORS 配置**：
+   - 在 `api/app.py` 中修改 `allow_origins` 为特定域名列表
+   - 避免在生产环境使用 `["*"]`
+
+3. **速率限制**：
+   - 考虑添加速率限制中间件防止滥用
+   - 可使用 `slowapi` 或 `fastapi-limiter` 库
+
+4. **HTTPS**：
+   - Render 自动提供 HTTPS 证书
+   - 确保所有请求都通过 HTTPS
+
+5. **监控和告警**：
+   - 设置 Render 的健康检查告警
+   - 集成第三方监控服务（如 UptimeRobot、Datadog）
+
+6. **依赖安全**：
+   - 定期更新 `requirements.txt` 中的依赖版本
+   - 使用 `pip-audit` 检查已知漏洞
 
 ## 故障排查
 
